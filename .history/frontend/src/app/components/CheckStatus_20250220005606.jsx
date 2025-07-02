@@ -1,0 +1,86 @@
+"use client";
+import { useState } from "react";
+
+export default function CheckTargetPage() {
+  const [nationalId, setNationalId] = useState("");
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const formatDate = (isoDate) => {
+    if (!isoDate) return "ยังไม่มีข้อมูล";
+    const date = new Date(isoDate);
+    return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  };
+
+  const handleCheckTarget = async () => {
+    if (nationalId.trim().length !== 13) {
+      setError("กรุณากรอกเลขบัตรประชาชน 13 หลักให้ถูกต้อง");
+      setResult(null);
+      return;
+    }
+
+    setError("");
+    setResult(null);
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/citizens/check-target/${nationalId}`
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "เกิดข้อผิดพลาด");
+      }
+
+      setResult(data);
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center bg-gray-100 p-6">
+      <h1 className="text-2xl font-bold mb-5">
+        ตรวจสอบกลุ่มเป้าหมายและวันรับเงิน
+      </h1>
+  
+      <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
+        <label className="block mb-2 font-medium">เลขบัตรประชาชน:</label>
+        <input
+          type="text"
+          value={nationalId}
+          onChange={(e) => {
+            const value = e.target.value.replace(/\D/g, ""); // รับเฉพาะตัวเลข
+            setNationalId(value);
+          }}
+          className="border p-2 rounded w-full focus:outline-blue-500"
+          maxLength={13}
+          placeholder="กรอกเลขบัตรประชาชน"
+          autoFocus
+        />
+  
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={handleCheckTarget}
+            className={`px-4 py-2 rounded transition duration-200 ${
+              error
+                ? "bg-red-500 hover:bg-red-600"
+                : "bg-blue-500 hover:bg-blue-600"
+            } text-white`}
+          >
+            ตรวจสอบ
+          </button>
+        </div>
+  
+        {error && <p className="mt-4 text-red-500">{error}</p>}
+  
+        {result && (
+          <div className="mt-4 p-4 bg-green-100 border border-green-400 rounded">
+           
+          </div>
+        )}
+      </div>
+    </div>
+  );
+  
+}

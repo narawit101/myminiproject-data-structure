@@ -1,0 +1,170 @@
+"use client";
+import { useState, useEffect } from "react";
+import ProtectedRoute from "../components/ProtectedRoute"; // Import ProtectedRoute
+import Navbar from "../components/Nav";
+import GenUser from "../components/GenUser";
+
+export default function CitizensPage() {
+  const [citizens, setCitizens] = useState([]);
+  const [filteredCitizens, setFilteredCitizens] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState("all");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({});
+
+  // ✅ โหลดข้อมูลจาก API
+  const fetchCitizens = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/citizens/check-target");
+      if (!res.ok) throw new Error("Failed to fetch citizens");
+      const data = await res.json();
+
+      console.log("Fetched data:", data); // ✅ Debug ข้อมูล
+
+      // ✅ กำจัดข้อมูลซ้ำโดยใช้ Map
+      const uniqueCitizens = [
+        ...new Map(data.map((item) => [item.citizen_id, item])).values(),
+      ];
+      setCitizens(uniqueCitizens);
+      setFilteredCitizens(uniqueCitizens);
+    } catch (error) {
+      console.error("Error fetching citizens:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchCitizens();
+  }, []); // ✅ โหลดข้อมูลครั้งเดียว
+
+  // ✅ ฟังก์ชันกรองข้อมูลตามกลุ่มเป้าหมาย
+  useEffect(() => {
+    if (selectedGroup === "all") {
+      setFilteredCitizens(citizens);
+    } else {
+      setFilteredCitizens(
+        citizens.filter((citizen) => citizen.target_group === selectedGroup)
+      );
+    }
+  }, [selectedGroup, citizens]);
+
+  // ✅ ฟังก์ชันลบ citizen โดยไม่ต้องโหลดใหม่
+  const handleDelete = async (id) => {
+    if (!confirm("คุณแน่ใจหรือไม่ที่จะลบข้อมูลนี้?")) return;
+
+    try {
+      const res = await fetch(`http://localhost:5000/citizens/delete/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Delete failed");
+
+      // ✅ ลบข้อมูลใน State ทันที
+      setCitizens((prev) =>
+        prev.filter((citizen) => citizen.citizen_id !== id)
+      );
+    } catch (error) {
+      console.error("Error deleting citizen:", error);
+    }
+  };
+
+  // ✅ เปิด Modal แก้ไข
+  const openEditModal = (citizen) => {
+    setEditData({
+      ...citizen,
+      birth_date: citizen.birth_date ? citizen.birth_date.split("T")[0] : "",
+    });
+    setIsEditing(true);
+  };
+
+  // ✅ ฟังก์ชันอัปเดตข้อมูล
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/citizens/update/${editData.citizen_id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editData),
+        }
+      );
+
+      if (!res.ok) throw new Error("Update failed");
+
+      // ✅ อัปเดตข้อมูลใน State โดยตรง
+      setCitizens((prev) =>
+        prev.map((citizen) =>
+          citizen.citizen_id === editData.citizen_id ? editData : citizen
+        )
+      );
+
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating citizen:", error);
+    }
+  };
+
+  return (
+    <ProtectedRoute>
+      <Navbar />
+      <GenUser />
+
+      <div className="container mx-auto p-6">
+        <h2 className="text-3xl font-semibold text-gray-800 mb-6 text-center" style={{ marginTop: "60px" }}>
+          แก้ไขข้อมูล
+        </h2>
+
+        {/* ✅ Dropdown สำหรับเลือกกลุ่ม */}
+        <div className="mb-4 text-center">
+          <label className="mr-2">เลือกกลุ่มเป้าหมาย:</label>
+          <select value={selectedGroup} onChange={(e) => setSelectedGroup(e.target.value)} className="border p-2 rounded">
+            <option value="all">ทั้งหมด</option>
+            <option value="ผู้มีรายได้น้อย">ผู้มีรายได้น้อย</option>
+            <option value="เกษตรกร">เกษตรกร</option>
+            <option value="ผู้สูงอายุ">ผู้สูงอายุ</option>
+          </select>
+        </div>
+
+        <table className="w-full table-auto border-collapse bg-white shadow-lg">
+          <thead>
+            <tr className="bg-blue-100 text-gray-600">
+              <th className="border p-3 text-left">ลำดับ</th>
+              <th className="border p-3 text-left">เลขบัตรประชาชน</th>
+              <th className="border p-3 text-left">ชื่อ</th>
+              <th className="border p-3 text-left">นามสกุล</th>
+              <th className="border p-3 text-left">อายุ</th>
+              <th className="border p-3 text-left">อาชีพ</th>
+              <th className="border p-3 text-left">รายได้</th>
+              <th className="border p-3 text-left">กลุ่มเป้าหมาย</th>
+              <th className="border p-3 text-left">วันแจกเงิน</th>
+              <th className="border p-3 text-left">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredCitizens.map((citizen, index) => (
+              <tr key={citizen.citizen_id} className="border-b hover:bg-gray-50">
+                <td className="border p-3">{index + 1}</td>
+                <td className="border p-3">{citizen.national_id}</td>
+                <td className="border p-3">{citizen.fname}</td>
+                <td className="border p-3">{citizen.lname}</td>
+                <td className="border p-3">{citizen.age}</td>
+                <td className="border p-3">{citizen.occupation}</td>
+                <td className="border p-3">{Math.floor(citizen.income).toLocaleString()} บาท</td>
+                <td className="border p-3">{citizen.target_group || "ไม่มีข้อมูล"}</td>
+                <td className="border p-3">{citizen.distribution_date ? new Date(citizen.distribution_date).toLocaleDateString("th-TH") : "ไม่มีข้อมูล"}</td>
+                <td className="border p-3 flex gap-2">
+                  <button onClick={() => openEditModal(citizen)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+                    แก้ไข
+                  </button>
+                  <button onClick={() => handleDelete(citizen.citizen_id)} className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition">
+                    ลบ
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </ProtectedRoute>
+  );
+}
